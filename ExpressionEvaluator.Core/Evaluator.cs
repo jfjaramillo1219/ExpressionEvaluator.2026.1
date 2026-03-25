@@ -1,59 +1,89 @@
-﻿namespace ExpressionEvaluator.Core;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+
+namespace ExpressionEvaluator.Core;
 
 public class Evaluator
 {
     public static double Evaluate(string infix)
     {
-        var postfix = InfixToPostfix(infix);
-        return EvaluatePostfix(postfix);
+        // 1. Convert the expression to Postfix using a Queue
+        var postfixQueue = InfixToPostfix(infix);
+
+        // 2. Evaluate the resulting queue
+        return EvaluatePostfix(postfixQueue);
     }
 
-    private static string InfixToPostfix(string infix)
+    private static Queue<string> InfixToPostfix(string infix)
     {
-        var postFix = string.Empty;
+        var postfixQueue = new Queue<string>(); // Queue required by the PDF
         var stack = new Stack<char>();
+        var currentNumber = string.Empty; // Accumulator for numbers with multiple digits
+
+        // Clean white spaces for safety
+        infix = infix.Replace(" ", "");
+
         foreach (var item in infix)
         {
-            if (IsOperator(item))
+            // If it is a number or a decimal point, we save it
+            if (char.IsDigit(item) || item == '.')
             {
+                currentNumber += item;
+            }
+            else if (IsOperator(item))
+            {
+                // If we find an operator, the number is complete. Put it in the queue.
+                if (!string.IsNullOrEmpty(currentNumber))
+                {
+                    postfixQueue.Enqueue(currentNumber);
+                    currentNumber = string.Empty;
+                }
+
                 if (stack.Count == 0)
                 {
                     stack.Push(item);
                 }
                 else
                 {
-                    if (item == ')')
+                    if (item == '(')
                     {
-                        do
+                        stack.Push(item);
+                    }
+                    else if (item == ')')
+                    {
+                        while (stack.Count > 0 && stack.Peek() != '(')
                         {
-                            postFix += stack.Pop();
-                        } while (stack.Peek() != '(');
-                        stack.Pop();
+                            postfixQueue.Enqueue(stack.Pop().ToString());
+                        }
+                        if (stack.Count > 0) stack.Pop(); // Remove the opening parenthesis '('
                     }
                     else
                     {
-                        if (PriorityInfix(item) > PriorityStack(stack.Peek()))
+                        // Keeping the original priority logic
+                        while (stack.Count > 0 && stack.Peek() != '(' && PriorityInfix(item) <= PriorityStack(stack.Peek()))
                         {
-                            stack.Push(item);
+                            postfixQueue.Enqueue(stack.Pop().ToString());
                         }
-                        else
-                        {
-                            postFix += stack.Pop();
-                            stack.Push(item);
-                        }
+                        stack.Push(item);
                     }
                 }
             }
-            else
-            {
-                postFix += item;
-            }
         }
+
+        // If there is a pending number at the end, put it in the queue
+        if (!string.IsNullOrEmpty(currentNumber))
+        {
+            postfixQueue.Enqueue(currentNumber);
+        }
+
+        // Empty any remaining operator in the stack to the queue
         while (stack.Count > 0)
         {
-            postFix += stack.Pop();
+            postfixQueue.Enqueue(stack.Pop().ToString());
         }
-        return postFix;
+
+        return postfixQueue;
     }
 
     private static int PriorityStack(char item) => item switch
@@ -64,7 +94,7 @@ public class Evaluator
         '+' => 1,
         '-' => 1,
         '(' => 0,
-        _ => throw new Exception("Sintax error."),
+        _ => throw new Exception("Syntax error."),
     };
 
     private static int PriorityInfix(char item) => item switch
@@ -75,33 +105,41 @@ public class Evaluator
         '+' => 1,
         '-' => 1,
         '(' => 5,
-        _ => throw new Exception("Sintax error."),
+        _ => throw new Exception("Syntax error."),
     };
 
-    private static double EvaluatePostfix(string postfix)
+    private static double EvaluatePostfix(Queue<string> postfixQueue)
     {
         var stack = new Stack<double>();
-        foreach (char item in postfix)
+
+        // Dequeue until the queue is empty
+        while (postfixQueue.Count > 0)
         {
-            if (IsOperator(item))
+            var token = postfixQueue.Dequeue();
+
+            // If the token is a single character and is an operator
+            if (token.Length == 1 && IsOperator(token[0]))
             {
                 var b = stack.Pop();
                 var a = stack.Pop();
-                stack.Push(item switch
+                stack.Push(token[0] switch
                 {
                     '+' => a + b,
                     '-' => a - b,
                     '*' => a * b,
                     '/' => a / b,
                     '^' => Math.Pow(a, b),
-                    _ => throw new Exception("Sintax error."),
+                    _ => throw new Exception("Syntax error."),
                 });
             }
             else
             {
-                stack.Push(double.Parse(item.ToString()));
+                // If it's not an operator, it is a number (e.g. "144" or "3.14")
+                // InvariantCulture ensures the dot (.) always works as a decimal separator
+                stack.Push(double.Parse(token, CultureInfo.InvariantCulture));
             }
         }
+
         return stack.Pop();
     }
 
