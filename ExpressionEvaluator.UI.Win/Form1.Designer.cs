@@ -50,6 +50,7 @@
             button19 = new Button();
             button20 = new Button();
             button21 = new Button();
+            helpProvider1 = new HelpProvider();
             SuspendLayout();
             // 
             // txtDisplay
@@ -344,7 +345,6 @@
             Controls.Add(txtDisplay);
             Name = "Form1";
             Text = "Form1";
-            Click += Button_Click;
             ResumeLayout(false);
             PerformLayout();
         }
@@ -373,5 +373,6 @@
         private Button button19;
         private Button button20;
         private Button button21;
+        private HelpProvider helpProvider1;
     }
 }
